@@ -104,7 +104,7 @@ const execute = async () => {
             },
             query: {
                 url: "https://github.com/gbosystems/synthetic-api/raw/main/airports/{property}/{value}.geojson",
-                values: {
+                properties: {
                     "iso_country": Object.keys(byCountryCode),
                     "type": Object.keys(byType)
                 }

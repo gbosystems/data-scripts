@@ -106,7 +106,7 @@ const execute = async () => {
             },
             query: {
                 url: "https://github.com/gbosystems/synthetic-api/raw/main/ports/{property}/{value}.geojson",
-                values: {
+                properties: {
                     "country": Object.keys(byCountryCode),
                     "harbor-size": Object.keys(byHarborSize),
                     "harbor-type": Object.keys(byHarborType),
