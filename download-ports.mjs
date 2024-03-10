@@ -8,8 +8,8 @@
  *      -> _DoD\Trust_Anchors_Self-Signed\0-DoD_Root_CA_3.cer
  *      -> _DoD\Intermediate_and_Issuing_CA_Certs\1-DOD_SW_CA-66.cer
  * Combine certs into single .pem file
- * Powershell: $env:NODE_EXTRA_CA_CERTS=".\cert-chain.pem"
- * Ubuntu?: https://askubuntu.com/a/1061060
+ * Powershell: $env:NODE_EXTRA_CA_CERTS=".\nga.mil-trust-chain.pem"
+ *
  */
 
 
@@ -94,14 +94,24 @@ const execute = async () => {
         });
     }
 
+    /* Write metadata.json */
     await writeObjectToFile(path.join(args.path, "metadata.json"), {
         source: url, 
+        credit: "Credit to US National Geospatial-Intelligence Agency.",
         updated: now.getTime(),
         total: allFeatures.length,
-        query: {
-            "country": Object.keys(byCountryCode),
-            "harbor-size": Object.keys(byHarborSize),
-            "harbor-type": Object.keys(byHarborType),
+        endpoints: {
+            all: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/ports/all.geojson"
+            },
+            query: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/ports/{property}/{value}.geojson",
+                values: {
+                    "country": Object.keys(byCountryCode),
+                    "harbor-size": Object.keys(byHarborSize),
+                    "harbor-type": Object.keys(byHarborType),
+                }
+            }            
         }
     });
 }

@@ -1,14 +1,14 @@
 /**
  * Copyright (c) 2024 GBO Systems
  *
- * Process airport list from CMS, geocode results, store as GeoJSON files
+ * Process airport list from OurAirports, store as GeoJSON files
  * 
  */
 
 
 import * as fs from "fs"
 import * as path from "path"
-import { ensurePathExistsSync, getArgs, groupBy, readStringFromFile, writeObjectToFile, writeStringToFile } from "./common.mjs"
+import { ensurePathExistsSync, getArgs, groupBy, readStringFromFile, writeObjectToFile } from "./common.mjs"
 import papaparse from "papaparse"
 
 const now = new Date();
@@ -43,7 +43,6 @@ const toGeoJsonFeature = (record) => {
     }
 }
 
-
 const execute = async () => {
 
     const args = getArgs();
@@ -53,9 +52,6 @@ const execute = async () => {
     await ensurePathExistsSync(path.join(args.destination, "type"));
     await ensurePathExistsSync(path.join(args.destination, "iso_country"));
 
-    
-
- 
     if (!fs.existsSync(csvPath)) {
         throw new Error(`${csvPath} does not exist!`);
     }
@@ -96,13 +92,23 @@ const execute = async () => {
         });
     }
 
+    /* Write metadata.json */
     await writeObjectToFile(path.join(args.destination, "metadata.json"), {
-        source: "https://github.com/davidmegginson/ourairports-data", 
+        source: "https://github.com/davidmegginson/ourairports-data",
+        credit: "Credit to David Megginson and OurAirports.",
         updated: now.getTime(),
         total: allFeatures.length,
-        query: {
-            "iso_country": Object.keys(byCountryCode),
-            "type": Object.keys(byType)
+        endpoints: {
+            all: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/airports/all.geojson"
+            },
+            query: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/airports/{property}/{value}.geojson",
+                values: {
+                    "iso_country": Object.keys(byCountryCode),
+                    "type": Object.keys(byType)
+                }
+            }            
         }
     });
 }
