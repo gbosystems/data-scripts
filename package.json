@@ -1,0 +1,22 @@
+{
+  "name": "synthetic-api-scripts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gbosystems/synthetic-api.git"
+  },
+  "author": "GBO Systems",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gbosystems/synthetic-api/issues"
+  },
+  "homepage": "https://github.com/gbosystems/synthetic-api#readme",
+  "dependencies": {
+    "papaparse": "5.4.1"
+  }
+}

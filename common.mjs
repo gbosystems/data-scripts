@@ -56,10 +56,35 @@ export const groupBy = (array, selector) => {
     return result;
 }
 
+export const readStringFromFile = async (fileName) => {
+
+    return new Promise((resolve, reject) => {
+        fs.readFile(fileName, (err, data) => {
+            if (err) {
+                reject(err);
+            }
+            
+            resolve(data.toString());
+        });
+    });
+}
+
 export const writeObjectToFile = async (fileName, data) => {
 
     return new Promise((resolve, reject) => {
         fs.writeFile(fileName, JSON.stringify(data), (err) => {
+            if (err) {
+                reject(err);
+            }
+            resolve();
+        });
+    });
+}
+
+export const writeStringToFile = async (fileName, data) => {
+
+    return new Promise((resolve, reject) => {
+        fs.writeFile(fileName, data, (err) => {
             if (err) {
                 reject(err);
             }

@@ -48,7 +48,6 @@ const execute = async () => {
     await ensurePathExistsSync(path.join(args.path, "harbor-size"));
     await ensurePathExistsSync(path.join(args.path, "harbor-type"));
 
-
     const data = await fetch(url).then(r => r.json());
     const allFeatures = data.ports.map(toGeoJsonFeature).sort((a, b) => {
         const aValue = a.portName ? a.portName.toLowerCase() : "";
