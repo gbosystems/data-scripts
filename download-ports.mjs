@@ -50,8 +50,8 @@ const execute = async () => {
 
     const data = await fetch(url).then(r => r.json());
     const allFeatures = data.ports.map(toGeoJsonFeature).sort((a, b) => {
-        const aValue = a.portName ? a.portName.toLowerCase() : "";
-        const bValue = b.portName ? b.portName.toLowerCase() : "";
+        const aValue = a.properties.portName ? a.properties.portName.toLowerCase() : "";
+        const bValue = b.properties.portName ? b.properties.portName.toLowerCase() : "";
 
         return aValue <= bValue ? -1 : 1;
     });

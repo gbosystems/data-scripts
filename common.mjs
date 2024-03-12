@@ -56,6 +56,23 @@ export const groupBy = (array, selector) => {
     return result;
 }
 
+export const readObjectFromFile = async (fileName) => {
+
+    return new Promise((resolve, reject) => {
+        fs.readFile(fileName, (err, data) => {
+            if (err) {
+                reject(err);
+            }
+            try {
+                resolve(JSON.parse(data.toString()));
+            } catch (ex) {
+                reject(ex);
+            }            
+        });
+    });
+}
+
+
 export const readStringFromFile = async (fileName) => {
 
     return new Promise((resolve, reject) => {
@@ -90,5 +107,14 @@ export const writeStringToFile = async (fileName, data) => {
             }
             resolve();
         });
+    });
+}
+
+export const wait = async (t) => {
+
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve();
+        }, t);
     });
 }

@@ -59,8 +59,8 @@ const execute = async () => {
     const csv = await readStringFromFile(csvPath);
     const result = papaparse.parse(csv, { header: true, skipEmptyLines: true });
     const allFeatures = result.data.filter(s => s.type != "closed").map(toGeoJsonFeature).sort((a, b) => {
-        const aValue = a.name ? a.name.toLowerCase() : "";
-        const bValue = b.name ? b.name.toLowerCase() : "";
+        const aValue = a.properties.name ? a.properties.name.toLowerCase() : "";
+        const bValue = b.properties.name ? b.properties.name.toLowerCase() : "";
 
         return aValue <= bValue ? -1 : 1;
     });
@@ -108,7 +108,7 @@ const execute = async () => {
                     "iso_country": Object.keys(byCountryCode),
                     "type": Object.keys(byType)
                 }
-            }            
+            }
         }
     });
 }

@@ -5,9 +5,10 @@
  * 
  */
 
+
+import * as fs from "fs"
 import * as path from "path"
-import { ensurePathExistsSync, getArgs, groupBy, writeObjectToFile, writeStringToFile } from "./common.mjs"
-import papaparse from "papaparse"
+import { ensurePathExistsSync, getArgs, groupBy, readObjectFromFile, wait, writeObjectToFile } from "./common.mjs"
 
 
 // SEE: https://data.cms.gov/provider-data/dataset/xubh-q36u
@@ -16,11 +17,69 @@ import papaparse from "papaparse"
 // SEE: https://www.here.com/docs/bundle/batch-api-developer-guide/page/topics/batch-request.html
 
 
-const accuracy = 6;
+const now = new Date();
 const downloadBatchSize = 500;
-const geocodeBatchSize = 1000;
+const geocodeRecordMax = 100;
 
-const getDownloadUrl = (offset, limit) => `https://data.cms.gov/provider-data/api/1/datastore/query/xubh-q36u/0?limit=${limit}&offset=${offset}&count=true&results=true&schema=false&keys=true&format=json&rowIds=false`
+const getDownloadUrl = (offset, limit) => `https://data.cms.gov/provider-data/api/1/datastore/query/xubh-q36u/0?limit=${limit}&offset=${offset}&count=true&results=true&schema=false&keys=true&format=json&rowIds=false`;
+
+const getLocationString = (record) => `${record.address}, ${record.citytown}, ${record.state}, ${record.zip_code}`;
+
+const toGeoJsonFeature = (record) => {
+
+    const id = record.facility_id;
+
+    return {
+        id: id,
+        type: 'Feature',
+        properties: record,
+        geometry: null
+    }
+}
+
+const loadExistingDataset = async (existing) => {
+
+    const allPath = path.join(existing, "all.geojson");
+    const locationOverridePath = path.join(existing, "location-override.json");
+
+    if (!fs.existsSync(allPath)) {
+        return { data: null, locations: {}, override: {} };
+    }
+
+    const all = await readObjectFromFile(allPath);
+    const locations = {};
+
+    for (let feature of all.features) {
+        if (feature.geometry === null) {
+            continue;
+        }
+
+        const key = getLocationString(feature.properties);
+
+        locations[key] = feature.geometry;
+    }
+
+    const override = await readObjectFromFile(locationOverridePath);
+
+    return { data: all, locations, override };
+}
+
+const applyExistingLocationsToIncomingData = (incoming, existing) => {
+
+    const locations = existing.locations ?? {};
+    const override = existing.override ?? {};
+
+    for (let feature of incoming) {
+        const key = getLocationString(feature.properties);
+        const geometry = override[feature.id] ?? locations[key];
+
+        if (geometry) {
+            feature.geometry = geometry;
+        }
+    }
+
+    return incoming;
+}
 
 const downloadHospitalList = async () => {
 
@@ -46,65 +105,78 @@ const downloadHospitalList = async () => {
     return records;
 }
 
-const getRowForHospitalGeocode = (record) => {
+const geocodeSingle = async (query, apiKey) => {
 
-    return [ record.facility_id, record.address, record.citytown, record.state, record.zip_code ];
+    const url = "https://geocode.search.hereapi.com/v1/geocode" +
+        "?in=countryCode:USA" +
+        `&q=${encodeURIComponent(query)}` +
+        `&apiKey=${apiKey}`;
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+
+    const status = response.status;
+    const json = await response.json();
+    
+    if (status === 429) {
+        throw new Error(`${json.error}: ${json.error_description}`);
+    }
+
+    return json;
 }
 
-const geocodeHospitalList = async (data) => {
+const geocodeIncomingData = async (data, apiKey) => {
 
-    const result = {};
-    let offset = 0;
-    let total = data.length;
+    let count = 0;
 
-    const noMatch = [];
+    console.log("Starting geocode...");
 
-    do {
-        const batch = data.slice(offset, geocodeBatchSize).map(getRowForHospitalGeocode);
-        const batchAsCsv = papaparse.unparse(batch, { skipEmptyLines: true });
+    for (let feature of data) {
 
-        console.log(`Geocoding batch ${offset} - ${offset + geocodeBatchSize}`);
-
-        const url = "https://geocoding.geo.census.gov/geocoder/locations/addressbatch"
-        const form = new FormData();
-        form.set("addressFile", new File([batchAsCsv], "addresses.csv", {
-            type: "text/csv",
-        }), "addresses.csv");
-        form.append('benchmark', 'Public_AR_Current'); //SEE: https://geocoding.geo.census.gov/geocoder/benchmarks
-
-        const response = await fetch(url, {
-            method: 'POST',
-            body: form
-        }).then(r => r.text());
-
-        const parsedResponse = papaparse.parse(response, { header: false });
-        const responseAsArray = parsedResponse.data;
-
-        for (let record of responseAsArray) {
-            if (record[2] === "Match") {
-                const coords = record[5].split(',');
-                const lon = parseFloat(parseFloat(coords[0]).toFixed(accuracy));
-                const lat = parseFloat(parseFloat(coords[1]).toFixed(accuracy));
-
-                result[record[0]] = {
-                    "type": "Point",
-                    "coordinates": [ lon, lat ]
-                }
-            } else {
-                noMatch.push(record);
-            }
+        if (feature.geometry !== null) {
+            continue;
         }
 
-        offset += geocodeBatchSize;
+        let geocode;
+        const query = getLocationString(feature.properties);
 
-    } while (offset < total)
+        count++;
 
-    await writeObjectToFile(path.join("./", "nomatch.json"), noMatch);   
+        console.log(`${count}) Geocoding (${feature.id}) "${query}"`);
 
+        try {
+            geocode = await geocodeSingle(query, apiKey);
+        } catch (ex) {
+            console.error(ex);
+            break;
+        }
 
-    return result;
+        if (Array.isArray(geocode.items) && geocode.items.length > 0) {
+            const position = geocode.items[0].position;
+
+            feature.geometry = {
+                type: 'Point',
+                coordinates: [position.lng, position.lat]
+            }
+        } else {
+            console.log(geocode);
+        }
+
+        if (count >= geocodeRecordMax) {
+            break;
+        }
+
+        await wait(500);
+    }
+
+    console.log(`Geocode complete, geocoded ${count} features`);
+
+    return data;
 }
-
 
 const execute = async () => {
 
@@ -113,24 +185,40 @@ const execute = async () => {
     await ensurePathExistsSync(args.path);
     //await ensurePathExistsSync(path.join(args.path, "country"));
 
-    const data = await downloadHospitalList();
-    const locations = await geocodeHospitalList(data, args.bingMapsKey);
+    const existing = await loadExistingDataset(args.existing);
+    const download = await downloadHospitalList();
+    let incoming = download.map(toGeoJsonFeature).sort((a, b) => {
+        const aValue = a.properties.facility_name ? a.properties.facility_name.toLowerCase() : "";
+        const bValue = b.properties.facility_name ? b.properties.facility_name.toLowerCase() : "";
 
-    console.log(`LENGTH: ${Object.keys(locations).length}`)
-    
-    await writeObjectToFile(path.join(args.path, "all.json"), data);   
+        return aValue <= bValue ? -1 : 1;
+    });
 
-    await writeObjectToFile(path.join(args.path, "locations.json"), locations);   
-    //await writeStringToFile(path.join(args.path, "trimmed.csv"), papaparse.unparse(trimmed, { header: false, skipEmptyLines: true }));   
+    incoming = applyExistingLocationsToIncomingData(incoming, existing);
+    incoming = await geocodeIncomingData(incoming, args.hereapikey);
 
+    await writeObjectToFile(path.join(args.path, "all.geojson"), {
+        type: "FeatureCollection",
+        features: incoming
+    });
 
+    /* Write metadata.json */
+    await writeObjectToFile(path.join(args.path, "metadata.json"), {
+        source: "https://data.cms.gov/provider-data/dataset/xubh-q36u",
+        credit: "Credit to the U.S Centers for Medicare & Medicaid Services and HERE Technologies.",
+        updated: now.getTime(),
+        total: incoming.length,
+        endpoints: {
+            all: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/hospitals/all.geojson"
+            },
+            query: {
+                url: "https://github.com/gbosystems/synthetic-api/raw/main/hospitals/{property}/{value}.geojson",
+                properties: {}
+            }
+        }
+    });
 }
-
-
-
-
-
-
 
 try {
     await execute();
