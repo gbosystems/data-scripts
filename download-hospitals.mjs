@@ -210,10 +210,10 @@ const execute = async () => {
         total: incoming.length,
         endpoints: {
             all: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/hospitals/all.geojson"
+                url: "https://github.com/gbosystems/data/raw/main/hospitals/all.geojson"
             },
             query: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/hospitals/{property}/{value}.geojson",
+                url: "https://github.com/gbosystems/data/raw/main/hospitals/{property}/{value}.geojson",
                 properties: {}
             }
         }

@@ -100,10 +100,10 @@ const execute = async () => {
         total: allFeatures.length,
         endpoints: {
             all: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/airports/all.geojson"
+                url: "https://github.com/gbosystems/data/raw/main/airports/all.geojson"
             },
             query: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/airports/{property}/{value}.geojson",
+                url: "https://github.com/gbosystems/data/raw/main/airports/{property}/{value}.geojson",
                 properties: {
                     "iso_country": Object.keys(byCountryCode),
                     "type": Object.keys(byType)

@@ -102,10 +102,10 @@ const execute = async () => {
         total: allFeatures.length,
         endpoints: {
             all: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/ports/all.geojson"
+                url: "https://github.com/gbosystems/data/raw/main/ports/all.geojson"
             },
             query: {
-                url: "https://github.com/gbosystems/synthetic-api/raw/main/ports/{property}/{value}.geojson",
+                url: "https://github.com/gbosystems/data/raw/main/ports/{property}/{value}.geojson",
                 properties: {
                     "country": Object.keys(byCountryCode),
                     "harbor-size": Object.keys(byHarborSize),
