@@ -183,7 +183,8 @@ const execute = async () => {
     const args = getArgs();
     
     await ensurePathExistsSync(args.path);
-    //await ensurePathExistsSync(path.join(args.path, "country"));
+    await ensurePathExistsSync(path.join(args.path, "state"));
+    await ensurePathExistsSync(path.join(args.path, "emergency_services"));
 
     const existing = await loadExistingDataset(args.existing);
     const download = await downloadHospitalList();
@@ -195,12 +196,37 @@ const execute = async () => {
     });
 
     incoming = applyExistingLocationsToIncomingData(incoming, existing);
-    incoming = await geocodeIncomingData(incoming, args.hereapikey);
+
+    if (typeof args.hereapikey === "string") {
+        incoming = await geocodeIncomingData(incoming, args.hereapikey);
+    }
 
     await writeObjectToFile(path.join(args.path, "all.geojson"), {
         type: "FeatureCollection",
         features: incoming
     });
+
+    const byState = groupBy(
+        incoming.filter(s => typeof s.properties.state === "string"),
+        s => s.properties.state);
+    
+    for (let key in byState) {
+        await writeObjectToFile(path.join(args.path, "state", `${key.toLowerCase()}.geojson`), {
+            type: "FeatureCollection",
+            features: byState[key]
+        });
+    }
+
+    const byEmergencyServices = groupBy(
+        incoming.filter(s => typeof s.properties.emergency_services === "string"),
+        s => s.properties.emergency_services);
+    
+    for (let key in byEmergencyServices) {
+        await writeObjectToFile(path.join(args.path, "emergency_services", `${key.toLowerCase()}.geojson`), {
+            type: "FeatureCollection",
+            features: byEmergencyServices[key]
+        });
+    }
 
     /* Write metadata.json */
     await writeObjectToFile(path.join(args.path, "metadata.json"), {
@@ -214,7 +240,10 @@ const execute = async () => {
             },
             query: {
                 url: "https://github.com/gbosystems/data/raw/main/hospitals/{property}/{value}.geojson",
-                properties: {}
+                properties: {
+                    "state": Object.keys(byState),
+                    "emergency_services": Object.keys(byEmergencyServices)
+                }
             }
         }
     });
